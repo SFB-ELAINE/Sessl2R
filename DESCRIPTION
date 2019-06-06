@@ -1,11 +1,13 @@
 Package: Sessl2R
-Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Title: Package to work with csv files produced by Sessl
+Version: 0.1.2
+Author: c(person("Kai", "Budde", email = "kai.budde@uni-rostock.de",
+    role = c("aut", "cre"))
+Maintainer: Kai Budde <kai.budde@uni-rostock.de>
+Description: Package to work with csv files produced by Sessl.
+Depends: R (>= 3.0.0)
+License: file LICENSE
 Encoding: UTF-8
 LazyData: true
+Imports: ggplot2, utils
+RoxygenNote: 6.0.1
