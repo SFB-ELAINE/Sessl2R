@@ -20,6 +20,10 @@
 # Created:     06/05/2019
 # Last edited: 06/05/2019
 
+
+# TODO: Instead of loading a csv-file and appending it, it might be better
+# to first load all csv files and afterwards put all data.frames togehter.
+
 getData <- function(input_dir, lines_to_delete = NA, columns_as_num = NA) {
   
   # Load libraries and set options #########################################
@@ -40,6 +44,7 @@ getData <- function(input_dir, lines_to_delete = NA, columns_as_num = NA) {
     }
   }
   # Data acquisition #######################################################
+  
   if(data_available == FALSE){
     return(0)
   }
@@ -48,6 +53,25 @@ getData <- function(input_dir, lines_to_delete = NA, columns_as_num = NA) {
   number_of_directories <- length(results_directories)
   initial_directory <- getwd()
   
+  fun <- function(file_name, directory_id, config_id, lines_to_delete){
+    df <- data.table::fread(file_name)
+    
+    if(!is.na(lines_to_delete)){
+      df <- df[-lines_to_delete,]
+    }
+    # Append information of directory
+    df$directory <- directory_id
+    
+    # Append information of config
+    df$config <- config_id
+    
+    # Append information of replication run
+    df$run <- as.numeric(gsub(pattern = "run-(.+).csv", "\\1", file_name))
+
+    return(df)
+  }
+  
+
   ## Go through each directory and append data
   
   for(i in 1:number_of_directories){
@@ -62,9 +86,7 @@ getData <- function(input_dir, lines_to_delete = NA, columns_as_num = NA) {
     
     number_of_config_directories <- length(results_config_directories)
     
-    ## Change the 
-    
-    
+
     for(j in 1:number_of_config_directories){
       df_config <- read.csv(paste(results_config_directories[j],"/config.csv",sep=""))
       
@@ -75,21 +97,15 @@ getData <- function(input_dir, lines_to_delete = NA, columns_as_num = NA) {
       results_cvs_files <- results_cvs_files[grepl("run", results_cvs_files)]
       number_of_files <- length(results_cvs_files)
       
+      
+      
+      
       # New data frame for the first time
       if(j == 1){
-        df <- read.csv(paste(results_config_directories[j],"/", results_cvs_files[1],sep=""))
-        
-        # Delete specific lines
-        df <- df[-lines_to_delete,]
-        
-        # Append information of directory
-        df$directory <- i
-        
-        # Append information of config
-        df$config <- 1
-        
-        # Append information of replication run
-        df$run <- 1
+        df <- dplyr::bind_rows(lapply(results_cvs_files,
+                                      fun, directory_id = i,
+                                      config_id = j,
+                                      lines_to_delete = lines_to_delete))
         
         # Append information of config files
         names_of_columns <- df_config$var
@@ -99,21 +115,12 @@ getData <- function(input_dir, lines_to_delete = NA, columns_as_num = NA) {
           }
         }
       }else{
-        df_dummy <- read.csv(paste(results_config_directories[j],"/", results_cvs_files[1],sep=""))
         
-        # Delete specific lines
-        if(!is.na(lines_to_delete)){
-          df_dummy <- df_dummy[-lines_to_delete,]
-        }
         
-        # Append information of directory
-        df_dummy$directory <- i
-        
-        # Append information of config
-        df_dummy$config <- j
-        
-        # Append information of replication run
-        df_dummy$run <- 1
+        df_dummy <- dplyr::bind_rows(
+          lapply(results_cvs_files, fun(directory_id = i,
+                                        config_idf = j,
+                                        lines_to_delete = lines_to_delete)))
         
         # Append information of config files
         names_of_columns <- df_config$var
@@ -123,43 +130,13 @@ getData <- function(input_dir, lines_to_delete = NA, columns_as_num = NA) {
           }
         }
         
-        df <- rbind(df, df_dummy)
+        df <- dplyr::bind_rows(df, df_dummy)
       }
       
-      # Go through all results and append them to the data frame
-      if(number_of_files > 1){
-        for(k in 2:number_of_files){
-          df_dummy <- read.csv(paste(results_config_directories[j],"/", results_cvs_files[k],sep=""))
-          
-          # Delete specific lines
-          if(!is.na(lines_to_delete)){
-            df_dummy <- df_dummy[-lines_to_delete,]
-          }
-          
-          # Append information of directory
-          df_dummy$directory <- i
-          
-          # Append information of config
-          df_dummy$config <- j
-          
-          # Append information of replication run
-          df_dummy$run <- k
-          
-          # Append information of config files
-          names_of_columns <- df_config$var
-          if(length(names_of_columns > 0)){
-            for(l in 1:length(names_of_columns)){
-              df_dummy[[names_of_columns[l]]] <- df_config$value[l]
-            }
-          }
-          
-          
-          df <- rbind(df, df_dummy)
-          
-        }
-      }
     }
     
+    df <- as.data.frame(df)
+    df <- dplyr::arrange(df, run)
     rownames(df) <- NULL
     
     # Save specific colums as numeric
@@ -168,7 +145,6 @@ getData <- function(input_dir, lines_to_delete = NA, columns_as_num = NA) {
         df[[columns_as_num[l]]] <- as.numeric(df[[columns_as_num[l]]])
       }
     }
-    
     
     
     # Save the data frame of every sub-directory into rda file
